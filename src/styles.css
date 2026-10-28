@@ -1,0 +1,224 @@
+:root {
+  color-scheme: light dark;
+  --bg: #f6f6f6;
+  --fg: #1c1c1c;
+  --muted: #6b6b6b;
+  --line: #d8d8d8;
+  --select: #e4edff;
+  --mark: #fde2e2;
+  --danger: #c62828;
+  --danger-fg: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #1e1e20;
+    --fg: #f0f0f0;
+    --muted: #9a9a9a;
+    --line: #3a3a3d;
+    --select: #2a3550;
+    --mark: #4a2424;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #1e1e20;
+  --fg: #f0f0f0;
+  --muted: #9a9a9a;
+  --line: #3a3a3d;
+  --select: #2a3550;
+  --mark: #4a2424;
+}
+
+body {
+  margin: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  font-family: system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+h1,
+h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.columns {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.column h2 {
+  padding: 10px 12px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--line);
+}
+
+.spaces {
+  width: 32%;
+  border-right: 1px solid var(--line);
+}
+
+.tabs {
+  flex: 1;
+}
+
+ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+}
+
+.row.selected {
+  background: var(--select);
+}
+
+.row.marked {
+  background: var(--mark);
+  text-decoration: line-through;
+}
+
+.row .name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row .count {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.pane-row {
+  padding-left: 36px;
+  font-size: 0.9rem;
+  cursor: default;
+}
+
+button {
+  font: inherit;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg);
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+button.trash {
+  display: flex;
+  padding: 2px 6px;
+  border: none;
+}
+
+button.trash svg {
+  width: 16px;
+  height: 16px;
+}
+
+.danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: var(--danger-fg);
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--line);
+}
+
+.footer p {
+  margin: 0;
+  color: var(--muted);
+}
+
+dialog {
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  max-width: 420px;
+}
+
+dialog menu {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 16px 0 0;
+  padding: 0;
+}
+
+.warning {
+  color: var(--danger);
+}
+
+#confirm-text {
+  white-space: pre-line;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.toolbar-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.setting {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+}

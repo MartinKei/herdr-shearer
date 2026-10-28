@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="/src/styles.css" />
+    <title>herdr-shearer</title>
+    <script type="module" src="/src/main.ts" defer></script>
+  </head>
+
+  <body>
+    <header class="toolbar">
+      <div class="title">
+        <img src="/src/assets/app-icon.png" class="app-icon" alt="" />
+        <h1>herdr-shearer</h1>
+      </div>
+      <div class="toolbar-actions">
+        <button id="refresh" type="button" title="reload spaces, tabs and panes from herdr">Refresh</button>
+        <button id="settings-open" type="button">Settings</button>
+      </div>
+    </header>
+
+    <main class="columns">
+      <section class="column spaces">
+        <h2>Spaces</h2>
+        <ul id="workspaces"></ul>
+      </section>
+
+      <section class="column tabs">
+        <h2>Tabs</h2>
+        <ul id="tabs"></ul>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p id="status"></p>
+      <button id="close-selected" type="button" class="danger" disabled>
+        Close selected
+      </button>
+    </footer>
+
+    <dialog id="confirm">
+      <h2>Close these items?</h2>
+      <p id="confirm-text"></p>
+      <p class="warning">Closing a pane stops its process. This cannot be undone.</p>
+      <menu>
+        <button id="confirm-cancel" type="button">Cancel</button>
+        <button id="confirm-ok" type="button" class="danger">Close</button>
+      </menu>
+    </dialog>
+
+    <dialog id="settings">
+      <h2>Settings</h2>
+      <label class="setting">
+        Theme
+        <select id="theme">
+          <option value="system">System</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </label>
+      <menu>
+        <button id="settings-close" type="button">Close</button>
+      </menu>
+    </dialog>
+  </body>
+</html>
