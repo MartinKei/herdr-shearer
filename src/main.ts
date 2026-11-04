@@ -50,6 +50,15 @@ interface DropTarget {
 }
 
 let tabDrag: TabDrag | null = null;
+interface RenameTarget {
+  kind: "tab" | "workspace";
+  id: string;
+  label: string;
+}
+
+// The item that the context menu and the rename dialog act on.
+let menuTarget: RenameTarget | null = null;
+let renameTarget: RenameTarget | null = null;
 // Set after a drag, so the click that follows does not expand the tab.
 let justDragged = false;
 
@@ -149,6 +158,14 @@ function renderWorkspaces() {
       selectedWorkspace = workspace.id;
       render();
     });
+    row.addEventListener("contextmenu", (event) => {
+      event.preventDefault();
+      openContextMenu(event.clientX, event.clientY, {
+        kind: "workspace",
+        id: workspace.id,
+        label: workspace.label,
+      });
+    });
     list.append(row);
   }
 }
@@ -165,6 +182,10 @@ function renderTabs() {
     const row = element("li", `row${tabMarked ? " marked" : ""}`);
     row.dataset.tabId = tab.id;
     row.dataset.tabIndex = String(index);
+    row.addEventListener("contextmenu", (event) => {
+      event.preventDefault();
+      openContextMenu(event.clientX, event.clientY, { kind: "tab", id: tab.id, label: tab.label });
+    });
     row.append(
       element("span", "name", `${expanded ? "▾" : "▸"} ${tab.label || tab.id}`),
       element("span", "count", `${tab.panes.length} panes`),
@@ -304,6 +325,49 @@ function showDropMarker(target: DropTarget | null) {
   if (target) target.row.classList.add(target.above ? "drop-before" : "drop-after");
 }
 
+function openContextMenu(x: number, y: number, target: RenameTarget) {
+  const menu = $<HTMLElement>("context-menu");
+  menuTarget = target;
+  $("menu-rename").textContent = target.kind === "tab" ? "Rename tab" : "Rename space";
+  menu.hidden = false;
+  // Keep the menu inside the window.
+  menu.style.left = `${Math.min(x, window.innerWidth - menu.offsetWidth - 8)}px`;
+  menu.style.top = `${Math.min(y, window.innerHeight - menu.offsetHeight - 8)}px`;
+}
+
+function hideContextMenu() {
+  $("context-menu").hidden = true;
+  menuTarget = null;
+}
+
+function openRenameDialog(target: RenameTarget) {
+  renameTarget = target;
+  $("rename-title").textContent = target.kind === "tab" ? "Rename tab" : "Rename space";
+  const input = $<HTMLInputElement>("rename-input");
+  input.value = target.label;
+  $<HTMLDialogElement>("rename").showModal();
+  input.select();
+}
+
+async function submitRename() {
+  const target = renameTarget;
+  const label = $<HTMLInputElement>("rename-input").value.trim();
+  $<HTMLDialogElement>("rename").close();
+  renameTarget = null;
+  if (!target || !label || label === target.label) return;
+
+  try {
+    if (target.kind === "tab") {
+      await invoke("rename_tab", { tabId: target.id, label });
+    } else {
+      await invoke("rename_workspace", { workspaceId: target.id, label });
+    }
+    await loadTree();
+  } catch (error) {
+    $("status").textContent = `Cannot rename ${target.kind}: ${error}`;
+  }
+}
+
 function endTabDrag() {
   tabDrag = null;
   showDropMarker(null);
@@ -384,6 +448,28 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   $("refresh").addEventListener("click", loadTree);
+
+  $("menu-rename").addEventListener("click", () => {
+    const target = menuTarget;
+    hideContextMenu();
+    if (target) openRenameDialog(target);
+  });
+  $("rename-cancel").addEventListener("click", () => {
+    renameTarget = null;
+    $<HTMLDialogElement>("rename").close();
+  });
+  $("rename-ok").addEventListener("click", submitRename);
+  $<HTMLInputElement>("rename-input").addEventListener("keydown", (event) => {
+    if (event.key === "Enter") submitRename();
+  });
+
+  // Close the context menu on a click elsewhere or on Escape.
+  window.addEventListener("pointerdown", (event) => {
+    if (!$("context-menu").contains(event.target as Node)) hideContextMenu();
+  });
+  window.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") hideContextMenu();
+  });
 
   $("close-selected").addEventListener("click", () => {
     $("confirm-text").textContent = describeSelection();

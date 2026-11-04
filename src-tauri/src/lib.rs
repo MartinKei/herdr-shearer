@@ -143,6 +143,16 @@ fn close_items(request: CloseRequest) -> Vec<CloseResult> {
     results
 }
 
+#[tauri::command]
+fn rename_tab(tab_id: String, label: String) -> Result<(), String> {
+    herdr(&["tab", "rename", &tab_id, &label]).map(|_| ())
+}
+
+#[tauri::command]
+fn rename_workspace(workspace_id: String, label: String) -> Result<(), String> {
+    herdr(&["workspace", "rename", &workspace_id, &label]).map(|_| ())
+}
+
 /// Move a tab to a new position. The CLI has no move command, so this uses the
 /// socket API. `insert_index` is the gap in the current tab list, before the tab
 /// at that index.
@@ -179,7 +189,7 @@ fn move_tab(tab_id: String, insert_index: u32) -> Result<(), String> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![load_tree, close_items, move_tab])
+        .invoke_handler(tauri::generate_handler![load_tree, close_items, move_tab, rename_tab, rename_workspace])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
