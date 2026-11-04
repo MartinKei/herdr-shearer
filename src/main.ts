@@ -35,6 +35,23 @@ const marks = {
 let tree: WorkspaceNode[] = [];
 let selectedWorkspace: string | null = null;
 const expandedTabs = new Set<string>();
+interface TabDrag {
+  tabId: string;
+  from: number;
+  startX: number;
+  startY: number;
+  active: boolean;
+}
+
+interface DropTarget {
+  row: HTMLElement;
+  gap: number;
+  above: boolean;
+}
+
+let tabDrag: TabDrag | null = null;
+// Set after a drag, so the click that follows does not expand the tab.
+let justDragged = false;
 
 const $ = <T extends HTMLElement>(id: string) =>
   document.getElementById(id) as T;
@@ -142,10 +159,12 @@ function renderTabs() {
   const workspace = selectedWorkspace ? findWorkspace(selectedWorkspace) : undefined;
   if (!workspace) return;
 
-  for (const tab of workspace.tabs) {
+  for (const [index, tab] of workspace.tabs.entries()) {
     const tabMarked = marks.tabs.has(tab.id);
     const expanded = expandedTabs.has(tab.id);
     const row = element("li", `row${tabMarked ? " marked" : ""}`);
+    row.dataset.tabId = tab.id;
+    row.dataset.tabIndex = String(index);
     row.append(
       element("span", "name", `${expanded ? "▾" : "▸"} ${tab.label || tab.id}`),
       element("span", "count", `${tab.panes.length} panes`),
@@ -155,6 +174,7 @@ function renderTabs() {
       }),
     );
     row.addEventListener("click", () => {
+      if (justDragged) return;
       if (expandedTabs.has(tab.id)) expandedTabs.delete(tab.id);
       else expandedTabs.add(tab.id);
       render();
@@ -266,8 +286,90 @@ function applyTheme(theme: string) {
   else document.documentElement.dataset.theme = theme;
 }
 
+// Drag with mouse events. The native HTML drag does not work in the Tauri window.
+function tabDropTarget(x: number, y: number): DropTarget | null {
+  const element = document.elementFromPoint(x, y) as HTMLElement | null;
+  const row = element?.closest<HTMLElement>("#tabs [data-tab-index]");
+  if (!row) return null;
+  const index = Number(row.dataset.tabIndex);
+  const box = row.getBoundingClientRect();
+  const above = y < box.top + box.height / 2;
+  return { row, above, gap: above ? index : index + 1 };
+}
+
+function showDropMarker(target: DropTarget | null) {
+  document
+    .querySelectorAll(".drop-before, .drop-after")
+    .forEach((el) => el.classList.remove("drop-before", "drop-after"));
+  if (target) target.row.classList.add(target.above ? "drop-before" : "drop-after");
+}
+
+function endTabDrag() {
+  tabDrag = null;
+  showDropMarker(null);
+  document.querySelectorAll(".dragged").forEach((el) => el.classList.remove("dragged"));
+  document.body.classList.remove("dragging-tab");
+}
+
+function setupTabDrag() {
+  const list = $<HTMLUListElement>("tabs");
+
+  list.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+    if ((event.target as HTMLElement).closest("button")) return;
+    const row = (event.target as HTMLElement).closest<HTMLElement>("[data-tab-index]");
+    if (!row?.dataset.tabId) return;
+    tabDrag = {
+      tabId: row.dataset.tabId,
+      from: Number(row.dataset.tabIndex),
+      startX: event.clientX,
+      startY: event.clientY,
+      active: false,
+    };
+  });
+
+  window.addEventListener("pointermove", (event) => {
+    if (!tabDrag) return;
+    if (!tabDrag.active) {
+      const distance = Math.hypot(event.clientX - tabDrag.startX, event.clientY - tabDrag.startY);
+      if (distance < 5) return;
+      tabDrag.active = true;
+      document.body.classList.add("dragging-tab");
+      list.querySelector(`[data-tab-id="${tabDrag.tabId}"]`)?.classList.add("dragged");
+    }
+    showDropMarker(tabDropTarget(event.clientX, event.clientY));
+  });
+
+  window.addEventListener("pointerup", async (event) => {
+    const drag = tabDrag;
+    if (!drag) return;
+    const target = tabDrag?.active ? tabDropTarget(event.clientX, event.clientY) : null;
+    endTabDrag();
+    if (!drag.active) return;
+
+    justDragged = true;
+    setTimeout(() => (justDragged = false), 0);
+
+    const workspace = findWorkspace(selectedWorkspace ?? "");
+    if (!target || !workspace) return;
+
+    // Dropping a tab next to its own place changes nothing.
+    if (target.gap === drag.from || target.gap === drag.from + 1) return;
+
+    try {
+      await invoke("move_tab", { tabId: drag.tabId, insertIndex: target.gap });
+      await loadTree();
+    } catch (error) {
+      $("status").textContent = `Cannot move tab: ${error}`;
+    }
+  });
+
+  window.addEventListener("pointercancel", endTabDrag);
+}
+
 window.addEventListener("DOMContentLoaded", () => {
   const dialog = $<HTMLDialogElement>("confirm");
+  setupTabDrag();
   const settings = $<HTMLDialogElement>("settings");
   const theme = $<HTMLSelectElement>("theme");
 

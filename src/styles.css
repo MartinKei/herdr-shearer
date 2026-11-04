@@ -8,6 +8,7 @@
   --mark: #fde2e2;
   --danger: #c62828;
   --danger-fg: #ffffff;
+  --accent: #3b6fd8;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -221,4 +222,21 @@ dialog menu {
   width: 24px;
   height: 24px;
   border-radius: 5px;
+}
+
+.row.drop-before {
+  border-top: 2px solid var(--accent);
+}
+
+.row.drop-after {
+  border-bottom: 2px solid var(--accent);
+}
+
+.row.dragged {
+  opacity: 0.5;
+}
+
+body.dragging-tab {
+  cursor: grabbing;
+  user-select: none;
 }

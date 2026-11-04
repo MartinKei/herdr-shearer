@@ -1,7 +1,10 @@
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{json, Value};
+use std::io::{BufRead, BufReader, Write};
+use std::os::unix::net::UnixStream;
 use std::path::Path;
 use std::process::Command;
+use std::time::Duration;
 
 #[derive(Serialize)]
 pub struct PaneNode {
@@ -140,11 +143,43 @@ fn close_items(request: CloseRequest) -> Vec<CloseResult> {
     results
 }
 
+/// Move a tab to a new position. The CLI has no move command, so this uses the
+/// socket API. `insert_index` is the gap in the current tab list, before the tab
+/// at that index.
+#[tauri::command]
+fn move_tab(tab_id: String, insert_index: u32) -> Result<(), String> {
+    let home = std::env::var("HOME").map_err(|e| format!("cannot read HOME: {e}"))?;
+    let socket = format!("{home}/.config/herdr/herdr.sock");
+    let mut stream =
+        UnixStream::connect(&socket).map_err(|e| format!("cannot connect to herdr: {e}"))?;
+    stream
+        .set_read_timeout(Some(Duration::from_secs(5)))
+        .map_err(|e| e.to_string())?;
+
+    let request = json!({
+        "id": "move-tab",
+        "method": "tab.move",
+        "params": { "tab_id": tab_id, "insert_index": insert_index },
+    });
+    writeln!(stream, "{request}").map_err(|e| format!("cannot send to herdr: {e}"))?;
+
+    let mut line = String::new();
+    BufReader::new(stream)
+        .read_line(&mut line)
+        .map_err(|e| format!("cannot read from herdr: {e}"))?;
+    let reply: Value =
+        serde_json::from_str(&line).map_err(|e| format!("invalid herdr reply: {e}"))?;
+    match reply.get("error") {
+        Some(error) => Err(error.to_string()),
+        None => Ok(()),
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![load_tree, close_items])
+        .invoke_handler(tauri::generate_handler![load_tree, close_items, move_tab])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
