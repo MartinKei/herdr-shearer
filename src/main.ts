@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import trashIcon from "./assets/icons/trash.svg?raw";
 import restoreIcon from "./assets/icons/restore.svg?raw";
+import openIcon from "./assets/icons/open.svg?raw";
 
 interface PaneNode {
   id: string;
@@ -33,6 +34,7 @@ const marks = {
 };
 
 let tree: WorkspaceNode[] = [];
+let tabFilter = "";
 let selectedWorkspace: string | null = null;
 const expandedTabs = new Set<string>();
 interface TabDrag {
@@ -125,16 +127,36 @@ function element(tag: string, className: string, text = "") {
   return el;
 }
 
-function trashButton(marked: boolean, onClick: () => void) {
-  const button = element("button", "trash");
-  // The icon strings are static files from src/assets/icons.
-  button.innerHTML = marked ? restoreIcon : trashIcon;
-  button.title = marked ? "Unmark" : "Mark for closing";
+// The icon strings are static files from src/assets/icons.
+function iconButton(icon: string, title: string, onClick: () => void) {
+  const button = element("button", "icon-button");
+  button.innerHTML = icon;
+  button.title = title;
   button.addEventListener("click", (event) => {
     event.stopPropagation();
     onClick();
   });
   return button;
+}
+
+function trashButton(marked: boolean, onClick: () => void) {
+  return iconButton(
+    marked ? restoreIcon : trashIcon,
+    marked ? "Unmark" : "Mark for closing",
+    onClick,
+  );
+}
+
+function openButton(kind: "workspace" | "tab" | "pane", id: string) {
+  return iconButton(openIcon, "Open in herdr", () => focusItem(kind, id));
+}
+
+async function focusItem(kind: string, id: string) {
+  try {
+    await invoke("focus_item", { kind, id });
+  } catch (error) {
+    $("status").textContent = `Cannot open ${kind}: ${error}`;
+  }
 }
 
 function renderWorkspaces() {
@@ -149,6 +171,7 @@ function renderWorkspaces() {
     row.append(
       element("span", "name", workspace.label || workspace.id),
       element("span", "count", `${workspace.tabs.length}`),
+      openButton("workspace", workspace.id),
       trashButton(marked, () => {
         toggleWorkspace(workspace);
         render();
@@ -176,7 +199,9 @@ function renderTabs() {
   const workspace = selectedWorkspace ? findWorkspace(selectedWorkspace) : undefined;
   if (!workspace) return;
 
+  const query = tabFilter.trim().toLowerCase();
   for (const [index, tab] of workspace.tabs.entries()) {
+    if (query && !tab.label.toLowerCase().includes(query)) continue;
     const tabMarked = marks.tabs.has(tab.id);
     const expanded = expandedTabs.has(tab.id);
     const row = element("li", `row${tabMarked ? " marked" : ""}`);
@@ -189,6 +214,7 @@ function renderTabs() {
     row.append(
       element("span", "name", `${expanded ? "▾" : "▸"} ${tab.label || tab.id}`),
       element("span", "count", `${tab.panes.length} panes`),
+      openButton("tab", tab.id),
       trashButton(tabMarked, () => {
         toggleTab(workspace, tab);
         render();
@@ -211,6 +237,7 @@ function renderTabs() {
       );
       paneRow.append(
         element("span", "name", pane.label || pane.id),
+        openButton("pane", pane.id),
         trashButton(paneMarked, () => {
           togglePane(workspace, tab, pane);
           render();
@@ -448,6 +475,10 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   $("refresh").addEventListener("click", loadTree);
+  $<HTMLInputElement>("tab-search").addEventListener("input", (event) => {
+    tabFilter = (event.target as HTMLInputElement).value;
+    renderTabs();
+  });
 
   $("menu-rename").addEventListener("click", () => {
     const target = menuTarget;

@@ -143,13 +143,13 @@ button:disabled {
   cursor: default;
 }
 
-button.trash {
+button.icon-button {
   display: flex;
   padding: 2px 6px;
   border: none;
 }
 
-button.trash svg {
+button.icon-button svg {
   width: 16px;
   height: 16px;
 }
@@ -265,6 +265,17 @@ body.dragging-tab {
 
 #rename-input {
   width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  padding: 6px 8px;
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.search {
+  margin: 8px 12px;
   box-sizing: border-box;
   font: inherit;
   padding: 6px 8px;

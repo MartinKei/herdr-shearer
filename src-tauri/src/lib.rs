@@ -153,11 +153,8 @@ fn rename_workspace(workspace_id: String, label: String) -> Result<(), String> {
     herdr(&["workspace", "rename", &workspace_id, &label]).map(|_| ())
 }
 
-/// Move a tab to a new position. The CLI has no move command, so this uses the
-/// socket API. `insert_index` is the gap in the current tab list, before the tab
-/// at that index.
-#[tauri::command]
-fn move_tab(tab_id: String, insert_index: u32) -> Result<(), String> {
+/// Send one request to the socket API and return its result.
+fn socket_request(method: &str, params: Value) -> Result<Value, String> {
     let home = std::env::var("HOME").map_err(|e| format!("cannot read HOME: {e}"))?;
     let socket = format!("{home}/.config/herdr/herdr.sock");
     let mut stream =
@@ -166,11 +163,7 @@ fn move_tab(tab_id: String, insert_index: u32) -> Result<(), String> {
         .set_read_timeout(Some(Duration::from_secs(5)))
         .map_err(|e| e.to_string())?;
 
-    let request = json!({
-        "id": "move-tab",
-        "method": "tab.move",
-        "params": { "tab_id": tab_id, "insert_index": insert_index },
-    });
+    let request = json!({ "id": method, "method": method, "params": params });
     writeln!(stream, "{request}").map_err(|e| format!("cannot send to herdr: {e}"))?;
 
     let mut line = String::new();
@@ -181,15 +174,45 @@ fn move_tab(tab_id: String, insert_index: u32) -> Result<(), String> {
         serde_json::from_str(&line).map_err(|e| format!("invalid herdr reply: {e}"))?;
     match reply.get("error") {
         Some(error) => Err(error.to_string()),
-        None => Ok(()),
+        None => Ok(reply["result"].clone()),
     }
+}
+
+/// Move a tab to a new position. `insert_index` is the gap in the current tab
+/// list, before the tab at that index. The CLI has no move command.
+#[tauri::command]
+fn move_tab(tab_id: String, insert_index: u32) -> Result<(), String> {
+    socket_request(
+        "tab.move",
+        json!({ "tab_id": tab_id, "insert_index": insert_index }),
+    )
+    .map(|_| ())
+}
+
+/// Focus a space, tab or pane in herdr.
+#[tauri::command]
+fn focus_item(kind: String, id: String) -> Result<(), String> {
+    let (method, params) = match kind.as_str() {
+        "workspace" => ("workspace.focus", json!({ "workspace_id": id })),
+        "tab" => ("tab.focus", json!({ "tab_id": id })),
+        "pane" => ("pane.focus", json!({ "pane_id": id })),
+        _ => return Err(format!("unknown kind {kind}")),
+    };
+    socket_request(method, params).map(|_| ())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![load_tree, close_items, move_tab, rename_tab, rename_workspace])
+        .invoke_handler(tauri::generate_handler![
+            load_tree,
+            close_items,
+            move_tab,
+            rename_tab,
+            rename_workspace,
+            focus_item
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
